@@ -103,6 +103,65 @@ $ ./TcpClient
 收到消息: abc
 ```
 
+###让程序更灵活些
+在上面的例子中，Server端接收Client端发来的数字的时候定义了一个4个字节的buff，那么则限定了Client端发送数据的时候只可以发送4个字节，作为IM怎么可以限制别人想要说的内容长度?
+
+生活中两个人聊天，一个人听另一个讲述的时候，我们会用一个语气停顿的间隔来判断对方说完了一句话，这就像生活中一个默认的“协议”，写一个IM通讯程序同样也需要一个商定好的协议。在文本编辑中通常是以换行来表示结尾，我们也可以借助换行来作为一句话的结束标识。强大的go已经提供了便利的方法来按行读取，官方包中`bufio`提供了一个`ReadLine()`的方法，改造后的代码如下：
+```golang
+//TcpServer.go
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	addr := conn.RemoteAddr()
+	rb := bufio.NewReader(conn)
+	for {
+		// 读取客户端消息
+		body, _, err := rb.ReadLine()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("收到%s消息: %s\n", addr, string(body[:]))
+		// 回包
+		_, err = conn.Write(body[:])
+		if err != nil {
+			break
+		}
+		fmt.Printf("发送给%s: %s\n", addr, string(body[:]))
+	}
+	fmt.Printf("与%s断开!\n", addr)
+}
+```
+我们再改造下Client端，让其更灵活的随意输入内容，改造代码如下：
+```golang
+//TcpClient.go
+func main() {
+	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		rd := bufio.NewReader(os.Stdin)
+		msg, _, err := rd.ReadLine()
+		if err != nil {
+			panic(err)
+		}
+		// 发送消息
+		_, err = conn.Write([]byte(msg))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("发送消息: " + string(msg))
+		// 读取消息
+		_, err = conn.Read(msg[:])
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("收到消息: " + string(msg))
+	}
+}
+```
+上述代码中从`os.Stdin`终端接收输入一行数据。此时我们就可以随意输入想要说的内容。
+
 
 ## UDP
 ### UDP Server
