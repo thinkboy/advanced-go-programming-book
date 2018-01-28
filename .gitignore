@@ -23,3 +23,11 @@ _obj
 
 # macOS
 .DS_Store
+
+*.a
+*.lib
+*.so
+*.dll
+*.obj
+*.o
+a.out
