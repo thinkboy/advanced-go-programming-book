@@ -103,7 +103,7 @@ $ ./TcpClient
 收到消息: abc
 ```
 
-### 让程序更灵活些
+###让程序更灵活些
 在上面的例子中，Server端接收Client端发来的数字的时候定义了一个4个字节的buff，那么则限定了Client端发送数据的时候只可以发送4个字节，作为IM怎么可以限制别人想要说的内容长度?
 
 生活中两个人聊天，一个人听另一个讲述的时候，我们会用一个语气停顿的间隔来判断对方说完了一句话，这就像生活中一个默认的“协议”，写一个IM通讯程序同样也需要一个商定好的协议。在文本编辑中通常是以换行来表示结尾，我们也可以借助换行来作为一句话的结束标识。强大的go已经提供了便利的方法来按行读取，官方包中`bufio`提供了一个`ReadLine()`的方法，改造后的代码如下：
@@ -164,7 +164,76 @@ func main() {
 
 
 ## UDP
+TCP是可靠传输，UDP是不可靠传输，再基础不过的知识了。在早些年很多人都是放弃不可靠传输的UDP协议的，然而并不能说他是过时无用的协议了，UDP由于简单的通讯过程相比TCP的三次握手效率带来的效率提升也是可观的。近来把UDP用在生产环境下的场景也很多，比如日志系统收集日志，监控系统收集埋点等在机房内网通讯网络环境较好的情况，丢包的概率几乎可以忽略。当然如果业务逻辑允许的情况下，公网也可以依赖UDP传输，腾讯QQ就是用UDP就是一个很好的例子。
+
+随着公网的不断改善，丢包的概率未来有一天也减少到可无视的情况的话，或许UDP协议将会完全代替TCP协议。下面则给一个go下面实现UDP的例子:
 ### UDP Server
-TODO
+```golang
+//UdpServer.go
+package main
+
+import (
+	"fmt"
+	"net"
+)
+
+func main() {
+	lAddr := net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
+	conn, err := net.ListenUDP("udp", &lAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	for {
+		// 读取消息
+		msg := make([]byte, 1024)
+		_, rAddress, err := conn.ReadFromUDP(msg)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("收到%s消息: %s\n", rAddress.String(), string(msg))
+		// 发送消息
+		conn.WriteToUDP(msg, rAddress)
+		fmt.Printf("发送%s消息: %s\n", rAddress.String(), string(msg))
+	}
+}
+
+```
 ### UDP Client
-TODO
+```golang
+//UdpClient.go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"os"
+)
+
+func main() {
+	lAddr := net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8090}
+	rAddr := net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080}
+	conn, err := net.DialUDP("udp", &lAddr, &rAddr)
+	if err != nil {
+		panic(err)
+	}
+	for {
+		rd := bufio.NewReader(os.Stdin)
+		msg, _, err := rd.ReadLine()
+		if err != nil {
+			panic(err)
+		}
+		// 发送消息
+		conn.Write(msg)
+		fmt.Printf("发送%s消息: %s\n", rAddr.String(), string(msg))
+		// 读取消息
+		rMsg := make([]byte, 1024)
+		_, rAddress, err := conn.ReadFromUDP(rMsg)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("收到%s消息: %s\n", rAddress.String(), string(rMsg))
+	}
+}
+```
